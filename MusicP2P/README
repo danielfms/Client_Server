@@ -4,30 +4,30 @@ Un nodo puede reproducir la musica que contenga en la carpeta
 
 Un nodo utiliza cinco sockets:
 Fijos:
-	1. Para conectarse con el tracker.
+	1. Para conectarse con el tracker.ROUTER[Tracker] DEALER[Nodo]
 	2. Escuchar solicitudes de partes de otros nodos. ROUTER
-	3. Recibir partes de otros nodos.
+	3. Recibir partes de otros nodos. ROUTER
 Variables:
-	4. Enviar una parte a un nodo.
+	4. Enviar una parte a un nodo. DEALER
 	5. Enviar una solicitud a un nodo. DEALER
 
 
 Tres hilos:
-	1. Consultas al tracker.
-	2. Recibir solicitudes de envio de partes a otros nodos.
+	1. Consultas al tracker y envíar las solicitudes a los nodos.
+	2. Recibir solicitudes de envio de partes a otros nodos y enviar partes.
 	3. Recibir partes de otros nodos y enviar informe al tracker.
 
 Una canción se divide en partes de 512 k.
-Cuando un nodo tiene todas las partes de una canción una las partes.
+Cuando un nodo tiene todas las partes de una canción une las partes.
 Comando dividir: split -b 512 cancion.mp3 Micancion
 Comando unir: cat Micancion.* > cancion.mp3
-Se crea una carpeta con el nombre de la canción y ahi se guardan las partes que se reciben o se envia.
+Se crea una carpeta con el nombre de la canción y ahi se guardan las partes que se reciben o se envian.
 
 
 Mensajes del nodo:
 	Register: Se registra ante el tracker con las canciones/partes que tenga.
 	|idnodo|register|ipnodo|ncanciones|cancion|npartes|parte1|...|parten|
-	ipnodo:Dirección donde recibo las solicitudes de envio partes.
+	
 
 	Solicitar parte a un nodo:
 	Se selecciona un nodo aleatoriamente y primero la parte mas rara.
@@ -41,7 +41,23 @@ mpg123: "mpg123 ./music/"+song+" &";
 Llamado al sistema con system(comando) en reproducir y dividir/unir.
 
 Tracker:
-	Buscar en todos los nodos una canción.
+	Busca en todos los nodos una canción.
+	Usa una tabla hash para guardar toda la información de los nodos.
+	La llave es idnodo y el valor un pair que contiene una tabla hash y otro pair.
+		En la tabla hash las llaves son las canciones que tiene el nodo y los valores las partes.
+		El segundo pair me permite guardar la ip para hacer la solicitud y un bool[desconectar] que no se esta usando.
+
+	Respuesta consulta: 
+	|idnodo|song|npartes|ip1solicitar|npartesnodo|part1|...|partn|ip2solicitar|npartesnodo|part1|...|partn|end|
+
+	Update:
+	Cuando un nodo envia una notificación informando que tiene una parte, el nodo lo adiciona a la th nodoSS.
+	En la proxima consulta al tracker esta parte ya se podra compartir, así el otro nodo no haya terminado de 
+	descargar la canción completa.
+
+
+NODO:
+	Un nodo puede descargar, compartir y reproducir una canción al mismo tiempo.
 
 ./tracker 5555
 ./nodo localhost 5555 localhost 5556 5557
