@@ -22,5 +22,5 @@ clean:
 #export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/utp/cs/zmq/lib
 #export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/utp/zmq/lib
 # LD_LIBRARY_PATH=/usr/local/lib
-# export LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH=/usr/local/lib
 #killall -9 *

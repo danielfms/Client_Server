@@ -1,6 +1,6 @@
 #include <czmq.h>
 #include <iostream>
-#include <thread> 
+#include <thread>
 #include <unordered_map>
 #include <dirent.h>
 #include <vector>
@@ -25,13 +25,16 @@ DIC partes,partNodo,nodoParts;
 list<pair< string,int > > listP;
 queue<zmsg_t*> msgSolicitudes;
 
-//Me crea las partes y las carpetas de cada archivo. 
+int ndescargas=0,nsubidas=0;
+float reputacion=0.0;
+
+//Me crea las partes y las carpetas de cada archivo.
 void inicializarMusic(){
   cout<<"Lista de archivos"<<endl;
   DIR *dir;
   struct dirent *ent;
   dir = opendir ("./music/");
-  if (dir == NULL) 
+  if (dir == NULL)
    cout<<"No puedo abrir el directorio"<<endl;
   while ((ent = readdir (dir)) != NULL) {
       if ( (strcmp(ent->d_name, ".")!=0) && (strcmp(ent->d_name, "..")!=0) ){
@@ -56,7 +59,7 @@ void crearmapa(){
 		string carpeta="./"+canciones[i];
 		vector<string> parts;
 		dir = opendir (carpeta.c_str());
-		if (dir == NULL) 
+		if (dir == NULL)
 	   cout<<"No puedo abrir el directorio"<<endl;
 		while ((ent = readdir (dir)) != NULL) {
 		    if ( (strcmp(ent->d_name, ".")!=0) && (strcmp(ent->d_name, "..")!=0) ){
@@ -113,7 +116,7 @@ void msgSolicitud(zctx_t* context,string addressrecibir,string song){
     zmsg_addstr(msgSolicitar,song.c_str()); //song
     zmsg_addstr(msgSolicitar,parte.c_str()); //parte
     zmsg_addstr(msgSolicitar,addressrecibir.c_str()); //recibir
-   
+
     zsocket_connect(enviarSolicitudes,selectedNode.c_str()); //Socket
 
     cout<<"Mensaje:"<<endl;
@@ -131,28 +134,29 @@ void handleTrackerMessage(zmsg_t* msg,zctx_t* context,string addressrecibir){
   listP.clear(); //Elimino lo que pueda contener esta lista, me va a servir para la parte mas rara.
   string song(zmsg_popstr(msg)); //song
   int npartes=atoi(zmsg_popstr(msg));//npartes
+  int npartesM=atoi(zmsg_popstr(msg));//npartes del mensaje
   songN[song]=npartes;
   //creo una tablahash parte:nodos que la tienen
 
   //limpio partNodo
   partNodo.clear();
-  while(true){
-    string nodo(zmsg_popstr(msg)); //direccion recibirsolicitud
-    if(nodo.compare("end")==0)
-      break;
-    int np=atoi(zmsg_popstr(msg));
-    for (int i = 0; i < np; i++){
-     string parte(zmsg_popstr(msg));
-     if(partNodo.count(parte)>0)
-        partNodo[parte].push_back(nodo);
-      else{
-        vector<string> ns;
-        ns.push_back(nodo);
-        partNodo[parte]=ns;
-      }
+  for(int i=0;i<npartesM;i++){
+    string parte(zmsg_popstr(msg)); //parte_i
+    int nodosparte=atoi(zmsg_popstr(msg)); // numero de nodos que tienen la parte_i
+
+    for(int j=0;j<nodosparte;j++){
+      string nodo(zmsg_popstr(msg));
+      if(partNodo.count(parte)>0)
+         partNodo[parte].push_back(nodo);
+       else{
+         vector<string> ns;
+         ns.push_back(nodo);
+         partNodo[parte]=ns;
+       }
     }
+
   }
-  //Guardo en la lista, las partes y la cantidad de nodos que la tienen.
+  //Guardo en la lista las partes y la cantidad de nodos que la tienen.
   for ( auto it = partNodo.begin(); it != partNodo.end(); ++it ){
     string part=it->first;
     vector<string> nodes=it->second;
@@ -187,13 +191,14 @@ void handleSolicitudMessage(zmsg_t* msg,zctx_t* context){
     zmsg_addstr(transferir,"ERROR");
     zmsg_send(&transferir,enviar);
   }else{
-    zmsg_addstr(transferir,song.c_str());   
+    zmsg_addstr(transferir,song.c_str());
     zmsg_addstr(transferir,fname.c_str());
     zframe_t *frame = zframe_new(zchunk_data(chunk), zchunk_size(chunk));
     zmsg_append(transferir, &frame);
     zframe_t* copy=zframe_dup(idN);
     sleep(4);
     zmsg_send(&transferir,enviar);
+    nsubidas=nsubidas+1;
     }
 }
 
@@ -214,11 +219,12 @@ void handleRecibirMessage(zmsg_t* msg,void* tracker,string dirrecibirSolicitud){
   zfile_t *download = zfile_new(directotioMusica.c_str(),fname.c_str());
   zfile_output(download);
   zframe_t *filePart =zmsg_pop(msg);
-  zchunk_t *chunk = zchunk_new(zframe_data(filePart), zframe_size(filePart)); 
+  zchunk_t *chunk = zchunk_new(zframe_data(filePart), zframe_size(filePart));
   zfile_write(download, chunk, 0);
   zfile_close(download);
 
   enviarInformeTracker(tracker,song,fname,dirrecibirSolicitud);
+  ndescargas=ndescargas+1;
   if(partes.count(song)>0){ //Si ya he descargado alguna parte de la cancion
      partes[song].push_back(fname);
      //verifico si ya estan todas las partes, si estan creo el archivo y digo donde lo guardo
@@ -255,7 +261,7 @@ void recvSolicitud_enviar(void* recibirSolicitudes,zctx_t *context){
       zmsg_print(msg);
       msgSolicitudes.push(msg);
       //handleSolicitudMessage(msg,context);
-    }      
+    }
   }
 }
 
@@ -270,7 +276,7 @@ void recibir_enviarInforme(void* recibir,void* tracker,string dirrecibirSolicitu
       zmsg_t* msg = zmsg_recv(recibir);
       zmsg_print(msg);
       handleRecibirMessage(msg,tracker,dirrecibirSolicitud);
-    }      
+    }
   }
 }
 
@@ -305,7 +311,7 @@ int main(int argc, char** argv){
 
   thread t1(recvSolicitud_enviar,recibirSolicitudes,context); //hilo recibirSolicitudes y enviar partes
   thread t2(recibir_enviarInforme,recibir,tracker,addressSolicitudes); //hilo recibir partes y enviar informe al tracker
-  
+
   while(true){
     sleep(2);
     int op;
@@ -313,14 +319,27 @@ int main(int argc, char** argv){
     cout<<"::::::::::::::::::Bittorrent:::::::::::::::::::"<<endl;
     cout<<":::::::::::::::::::::::::::::::::::::::::::::::"<<endl;
 
+    cout<<"0.Conocer repuacion"<<endl;
     cout<<"1.Reproducir"<<endl; //Buscar si la cancion esta en el arbol sino sugerir que la descargue
     cout<<"2.Descargar"<<endl;
+    cout<<"3.Desconectar"<<endl;
 
     cin>>op;
     switch(op){
+      case 0:
+      {
+        if(ndescargas==0 && nsubidas==0)reputacion=0;
+        else if(ndescargas==0 && nsubidas!=0)reputacion=1;
+        else reputacion= nsubidas/ndescargas;
+
+        cout<<"Descargas: "<<ndescargas<<endl;
+        cout<<"Subidas: "<<nsubidas<<endl;
+        cout<<"La reputación del nodo es: "<<reputacion<<endl;
+        break;
+      }
       case 1:
       {
-        cout<<"Por favor ingrese el nombre de la cancion a reproducir: ";  
+        cout<<"Por favor ingrese el nombre de la cancion a reproducir: ";
         cin>>song;
         if(songSearch.count(song)>0){
           string comando="mpg123 ./music/"+song+" &";
@@ -330,16 +349,20 @@ int main(int argc, char** argv){
           cout<<"La cancion no se encuentra en este nodo, por favor descargela(opcion 2)"<<endl;
         }
         break;
-      }       
+      }
       case 2:
       {
-	      cout<<"Por favor ingrese el nombre de la cancion a descargar: ";  
+	      cout<<"Por favor ingrese el nombre de la cancion a descargar: ";
 	      cin>>song;
 	      if(songSearch.count(song)>0){
 	        cout<<"La cancion ya se encuentra en este nodo"<<endl;
 	      }else{
+          if(ndescargas==0 && nsubidas==0)reputacion=0;
+          else if(ndescargas==0 && nsubidas!=0)reputacion=1;
+          else reputacion= nsubidas/ndescargas;
 	        zmsg_t* msgquery=zmsg_new();
 	        zmsg_addstr(msgquery,"query");
+          zmsg_addstr(msgquery,to_string(reputacion).c_str());
 	        zmsg_addstr(msgquery,song.c_str());
 	        zmsg_send(&msgquery,tracker);
 	        zmsg_t* msg = zmsg_recv(tracker);
@@ -347,7 +370,24 @@ int main(int argc, char** argv){
 	        handleTrackerMessage(msg,context,addressRecibir);
 	      }
         break;
-      }       
+      }
+      case 3:
+      {
+	      cout<<"Desconectando ... ";
+        zmsg_t* msgdes=zmsg_new();
+        zmsg_addstr(msgdes,"desconectar");
+        zmsg_send(&msgdes,tracker);
+        zmsg_t* msg = zmsg_recv(tracker);
+        zmsg_print(msg);
+        string m(zmsg_popstr(msg));
+        if(m.compare("OK")==0){
+          cout<<"Bye..."<<endl;
+          exit(0);
+        }else{
+          cout<<"No se ha podido desconectar el nodo"<<endl;
+        }
+        break;
+      }
       default:
         cout<<"Opcion no valida"<<endl;
     }
@@ -355,6 +395,3 @@ int main(int argc, char** argv){
 
 	return 0;
 }
-
-
-
