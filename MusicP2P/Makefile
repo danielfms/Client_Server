@@ -1,6 +1,6 @@
 CC=g++ -std=c++11
-#ZMQ=/home/utp/cs/zmq
-ZMQ=/usr/local
+ZMQ=/home/utp/zmq
+#ZMQ=/usr/local
 ZMQ_LIBS=$(ZMQ)/lib
 ZMQ_HDRS=$(ZMQ)/include
 
