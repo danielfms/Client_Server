@@ -1,0 +1,17 @@
+#!/bin/bash
+#sh scrip
+wget http://download.zeromq.org/zeromq-4.0.5.tar.gz
+tar xzvf zeromq-4.0.5.tar.gz
+mkdir zmq
+cd zeromq-4.0.5
+./configure --prefix=/home/utp/zmq
+make -j4 
+make install
+echo export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/utp/zmq/lib >> /home/utp/.bashrc 
+source /home/utp/.bashrc
+cd ..
+wget http://download.zeromq.org/czmq-3.0.0-rc1.tar.gz
+tar xzvf czmq-3.0.0-rc1.tar.gz
+cd czmq-3.0.0
+./configure --with-libzmq=/home/utp/zmq --prefix=/home/utp/zmq/
+make install
