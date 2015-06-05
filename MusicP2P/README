@@ -1,4 +1,21 @@
 Reproductor de musica P2P.
+
+Para ejecutar:
+1. Instalar la libreria czmq - zmq. Ejecutando el script installczmq.sh
+	comando: sh installczmq.sh
+2. Hacer el make, tener en cuenta las rutas de donde esta instalado czmq.
+	comando: make
+3. Agregar el export de la ubicación de la libreria czmq
+	comando: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/utp/zmq/lib
+4. Instaalr la libreria para reproducir mp3: mpg123.
+	comando: sudo apt-get install mpg123
+5. Ejecutar el tracker. con el puerto por el que escucha.
+	./tracker puertoEscuchaconsultas
+	comando: ./tracker 5555
+6. Ejecutar el o los clientes. La musica debe estar en una carpeta llamada "music".
+	./nodo iptracker puertotracker miip puertorecibosolicitudes puertorecibopartes
+	comando: ./nodo localhost 5555 localhost 5556 5557 
+	
 Un nodo puede reproducir la musica que contenga en la carpeta
 ./music , o puede descargar una canción de otros nodos.
 
