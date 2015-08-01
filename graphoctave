@@ -1,0 +1,2 @@
+load out
+plot(out(:,1),out(:,2));
